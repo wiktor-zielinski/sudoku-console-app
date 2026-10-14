@@ -1,6 +1,8 @@
 ﻿using System;
-using System.IO;
 using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Reflection.Metadata.Ecma335;
 
 namespace sudoku_console_app
 {
@@ -9,80 +11,240 @@ namespace sudoku_console_app
         static string solvedSudokuFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\solvedSudokus.csv");
         static string unsolvedSudokuFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\unsolvedSudokus.csv");
         private static Random random = new Random();
+        const int MenuWidth = 75;
+
         static void Main(string[] args)
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-            Console.WriteLine("--- APLIKACJA SUDOKU ---");
 
             while (true)
             {
-                // Wprowadzanie danych
-                Console.WriteLine("\nPodaj liczbę sudoku do wygenerowania [0-20] (Wpisz 'exit' aby zakończyć działanie programu)\n");
-                var input = Console.ReadLine()?.Trim();
-
-                // Walidacja danych
-                if (input == "exit")
-                {
-                    Console.WriteLine("\nKoniec programu.\n");
-                    break;
-                }
-
-                if (!int.TryParse(input, out int count))
-                {
-                    Console.WriteLine("\nNieprawidłowy format danych. Spróbuj ponownie.\n");
-                    continue;
-                }
-
-                if (count < 0 || count > 20)
-                {
-                    Console.WriteLine("\nIlość sudoku wychodzi poza dozwolony przedział. Spróbuj ponownie\n");
-                    continue;
-                }
-
-                // Generowanie sudoku
-                GenerateAndSaveSudokus(count);
-                Console.Write($"\nZ powodzeniem wygenerowano i zapisano [{count}] sudoku do bazy.");
-                Thread.Sleep(3000);
                 Console.Clear();
-                Console.WriteLine("--- APLIKACJA SUDOKU ---");
+                PrintTopBorder();
+                PrintCenteredText("APLIKACJA SUDOKU");
+                PrintMiddleBorder();
+                PrintEmptyLine();
+                PrintLeftText("Wybierz na której bazie chcesz pracować:");
+                PrintEmptyLine();
+                PrintLeftText("A - Baza rozwiązanych sudoku");
+                PrintLeftText("B - Baza nierozwiązanych");
+                PrintEmptyLine();
+                PrintLeftText("X - Wyjdź z programu");
+                PrintEmptyLine();
+                PrintBottomBorder();
 
-                // Zarządzanie bazą
-                Console.WriteLine("\nCo chcesz zrobić przed ponowną generacją?\n");
-                Console.WriteLine("0 - Zakończ program.");
-                Console.WriteLine("1 - Wyzeruj bazę");
-                Console.WriteLine("2 - Zostaw bazę");
-                Console.WriteLine("3 - Wypisz aktualną sprawdzoną bazę");
-                Console.WriteLine();
+                Console.Write("\nTwój wybór: ");
+                string choice = Console.ReadLine()?.Trim().ToUpper();
 
-                string choice = Console.ReadLine();
+                if (choice == "X") break;
+                else if (choice == "A") MenuRozwiazane();
+                else if (choice == "B") MenuNierozwiazane();
+            }
+        }
+
+        static void MenuRozwiazane()
+        {
+            while (true)
+            {
+                Console.Clear();
+                PrintTopBorder();
+                PrintCenteredText("BAZA ROZWIĄZANYCH SUDOKU");
+                PrintMiddleBorder();
+                PrintCenteredText("USUWANIE");
+                PrintMiddleBorder();
+                PrintEmptyLine();
+                PrintLeftText("01 - Wyzeruj baze");
+                PrintLeftText("02 - Usuniecie danego wpisu z bazy");
+                PrintLeftText("03 - Pozytywnie wyczyscic baze (usunięcie nieprawidłowych)");
+                PrintLeftText("04 - Negatywnie wyczyscic baze (usunięcie prawidłowych)");
+                PrintEmptyLine();
+                PrintMiddleBorder();
+                PrintCenteredText("DODAWANIE / PRZETWARZANIE");
+                PrintMiddleBorder();
+                PrintEmptyLine();
+                PrintLeftText("1 - Generuj nowe wpisy do bazy");
+                PrintLeftText("2 - Wyswietl rozwiazania sudoku (wszystkie/wybrane)");
+                PrintLeftText("3 - Wypisz statystyki bazy");
+                PrintLeftText("4 - Reczne wpisanie rozwiazanego sudoku");
+                PrintLeftText("5 - Dekonstrukcja i animacja rozwiazania krok-po-kroku");
+                PrintEmptyLine();
+                PrintMiddleBorder();
+                PrintEmptyLine();
+                PrintLeftText("0 - Powrót");
+                PrintEmptyLine();
+                PrintBottomBorder();
+
+                Console.Write("\nWybierz opcję: ");
+                string choice = Console.ReadLine()?.Trim();
+
+                if (choice == "0") break;
 
                 switch (choice)
                 {
-                    case "0": Console.WriteLine("Zamykanie programu..."); return;
-                    case "1":
+                    case "0":
+                        Console.WriteLine("\nZamykanie programu");
+                        return;
+                    case "01":
                         File.WriteAllText(solvedSudokuFilePath, string.Empty);
-                        Console.Write("\n[Info] Baza została pomyślnie wyczyszczona.");
-                        Thread.Sleep(3000);
-                        Console.Clear();
-                        Console.WriteLine("--- APLIKACJA SUDOKU ---");
+                        Console.WriteLine("Baza wyzerowana.");
+                        Thread.Sleep(1000);
+                        break;
+                    case "02":
+                        DeleteEntry(solvedSudokuFilePath);
+                        break;
+                    case "03":
+                        CleanUpDatabase(solvedSudokuFilePath, true);
+                        break;
+                    case "04":
+                        CleanUpDatabase(solvedSudokuFilePath, false);
+                        break;
+                    case "1":
+                        Console.Write("Podaj liczbe sudoku do wygenerowania [1-20]: ");
+                        if (int.TryParse(Console.ReadLine(), out int count) && count >= 1 && count <= 20)
+                        {
+                            GenerateAndSaveSudokus(count);
+                            Console.WriteLine($"Wygenerowano {count} wpisow.");
+                            Thread.Sleep(1000);
+                        }
                         break;
                     case "2":
-                        Console.Write("\n[Info] Baza została zachowana. Kolejne plansze zostaną dopisane.");
-                        Thread.Sleep(3000);
-                        Console.Clear();
-                        Console.WriteLine("--- APLIKACJA SUDOKU ---");
+                        DisplayDatabase(solvedSudokuFilePath);
                         break;
                     case "3":
-                        VerifySudokusFromCsv(solvedSudokuFilePath);
-                        Console.WriteLine("\nNaciśnij dowolny klawisz, aby wrócić: ");
-                        Console.ReadKey();
-                        Console.Clear();
-                        Console.WriteLine("--- APLIKACJA SUDOKU ---");
+                        ShowStats(solvedSudokuFilePath);
+                        break;
+                    case "4":
+                        ManualEntry(solvedSudokuFilePath);
+                        break;
+                    case "5":
+                        AnimateSudoku(solvedSudokuFilePath, isSolved: true);
                         break;
                 }
             }
         }
+
+        static void MenuNierozwiazane()
+        {
+            while (true)
+            {
+                Console.Clear();
+                PrintTopBorder();
+                PrintCenteredText("BAZA NIEROZWIĄZANYCH SUDOKU");
+                PrintMiddleBorder();
+                PrintCenteredText("USUWANIE");
+                PrintMiddleBorder();
+                PrintEmptyLine();
+                PrintLeftText("01 - Wyzeruj baze");
+                PrintLeftText("02 - Usuniecie danego wpisu z bazy");
+                PrintEmptyLine();
+                PrintMiddleBorder();
+                PrintCenteredText("DODAWANIE / PRZETWARZANIE");
+                PrintMiddleBorder();
+                PrintEmptyLine();
+                PrintLeftText("1 - Tworzenie nowej nierozwiazanej planszy (Easy/Medium/Hard)");
+                PrintLeftText("2 - Wyswietl dane nierozwiazane sudoku (wszystkie/wybrane)");
+                PrintLeftText("3 - Konstrukcja krok-po-kroku wybranego nierozwiazanego sudoku");
+                PrintEmptyLine();
+                PrintMiddleBorder();
+                PrintEmptyLine();
+                PrintLeftText("0 - Powrót");
+                PrintEmptyLine();
+                PrintBottomBorder();
+
+                Console.Write("\nWybierz opcję: ");
+                string choice = Console.ReadLine()?.Trim();
+
+                if (choice == "0") break;
+
+                switch (choice)
+                {
+                    case "1":
+                        File.WriteAllText(unsolvedSudokuFilePath, string.Empty);
+                        Console.WriteLine("Baza wyzerowana.");
+                        Thread.Sleep(1000);
+                        break;
+                    case "2":
+                        DeleteEntry(unsolvedSudokuFilePath);
+                        break;
+                    case "3":
+                        GenerateUnsolvedSudoku();
+                        break;
+                    case "4":
+                        DisplayDatabase(unsolvedSudokuFilePath);
+                        break;
+                    case "5":
+                        AnimateSudoku(unsolvedSudokuFilePath, isSolved: false);
+                        break;
+                }
+            }
+        }
+
+        
+        // ----- Metody do rysowania menu -----
+
+        // Unicode obramowania
+        // https://en.wikipedia.org/wiki/Box-drawing_characters
+
+        // Rysowanie górnego paska obramowania
+        static void PrintTopBorder()
+        {
+            Console.WriteLine("╔" + new string('═', MenuWidth - 2) + "╗");
+        }
+
+        // Rysowanie środkowego paska obramowania
+        static void PrintMiddleBorder()
+        {
+            Console.WriteLine("╠" + new string('═', MenuWidth - 2) + "╣");
+        }
+
+        // Rysowanie dolnego paska obramowania
+        static void PrintBottomBorder()
+        {
+            Console.WriteLine("╚" + new string('═', MenuWidth - 2) + "╝");
+        }
+
+        // Rysowanie pustej linii bez tekstu (tylko obramowanie ║ po lewej i prawej ) 
+        static void PrintEmptyLine()
+        {
+            Console.WriteLine("║" + new string(' ', MenuWidth - 2) + "║");
+        }
+
+        // Rysuje obramowania ║ po lewej i prawej oraz wypisuje wyśrodkowany podany tekst dla nagłówków w menu
+        static void PrintCenteredText(string text)
+        {
+            // Oblicza ilość znaków potrzebnych do wyśrodkowania tekstu
+            int totalSpaces = MenuWidth - 2 - text.Length;
+            int leftSpaces = totalSpaces / 2;
+            int rightSpaces = totalSpaces - leftSpaces;
+
+            // Zabezpieczenie przed błędem gdzie tekst jest dłuższy od szerokości menu
+            if (totalSpaces < 0)
+            {
+                text = text.Substring(0, MenuWidth - 5) + "...";
+                leftSpaces = 0; rightSpaces = 0;
+            }
+
+            Console.WriteLine("║" + new string(' ', leftSpaces) + text + new string(' ', rightSpaces) + "║");
+        }
+
+        // Rysuje obramowania ║ po lewej i prawej oraz wypisuje podany tekst wyrównany do lewej dla pozycji w menu
+        static void PrintLeftText(string text)
+        {
+            string prefix = "  ";
+            int rightSpaces = MenuWidth - 2 - text.Length - prefix.Length;
+
+            // Zabezpieczenie przed błędem gdzie tekst jest dłuższy od szerokości menu
+            if (rightSpaces < 0)
+            {
+                text = text.Substring(0, MenuWidth - 5 - prefix.Length) + "...";
+                rightSpaces = 0;
+            }
+
+            Console.WriteLine("║" + prefix + text + new string(' ', rightSpaces) + "║");
+        }
+
+        // ----- Metody sudoku -----
 
         // Generenowanie i zapisywanie sudoku
         static void GenerateAndSaveSudokus(int count)
@@ -115,6 +277,10 @@ namespace sudoku_console_app
             }
         }
 
+        static void GenerateUnsolvedSudoku()
+        {
+
+        }
         // Generowanie nowej losowej, poprawnej planszy sudoku na podstawie bazowej.
         static int[,] GenerateValidBaseSudoku()
         {
@@ -310,6 +476,37 @@ namespace sudoku_console_app
             }
 
             return "\nPRAWIDŁOWE SUDOKU";
+        }
+
+        // Usuwanie wszystkich lub wybranego wpisu
+        static void DeleteEntry(string path)
+        {
+
+        }
+
+        static void CleanUpDatabase(string path, bool keepValid)
+        {
+
+        }
+
+        static void DisplayDatabase(string path)
+        {
+
+        }
+
+        static void ShowStats(string path)
+        {
+
+        }
+
+        static void ManualEntry(string path)
+        {
+
+        }
+
+        static void AnimateSudoku(string path, bool isSolved)
+        {
+
         }
     }
 }
