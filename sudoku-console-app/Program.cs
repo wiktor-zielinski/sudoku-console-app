@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Reflection.Metadata.Ecma335;
 
 namespace sudoku_console_app
 {
@@ -94,10 +93,10 @@ namespace sudoku_console_app
                         DeleteEntry(solvedSudokuFilePath);
                         break;
                     case "03":
-                        CleanUpDatabase(solvedSudokuFilePath, true);
+                        FilterDatabase(solvedSudokuFilePath, true);
                         break;
                     case "04":
-                        CleanUpDatabase(solvedSudokuFilePath, false);
+                        FilterDatabase(solvedSudokuFilePath, false);
                         break;
                     case "1":
                         Console.Write("Podaj liczbe sudoku do wygenerowania [1-20]: ");
@@ -186,65 +185,66 @@ namespace sudoku_console_app
         // Unicode obramowania
         // https://en.wikipedia.org/wiki/Box-drawing_characters
 
+        static string GetLeftMargin()
+        {
+            int margin = (Console.WindowWidth - MenuWidth) / 2;
+            // Zapobiega błędom zwężania terminalu bardziej niż szerokość menu 
+            return new string(' ', Math.Max(0, margin));
+        }
+
         // Rysowanie górnego paska obramowania
         static void PrintTopBorder()
         {
-            Console.WriteLine("╔" + new string('═', MenuWidth - 2) + "╗");
+            Console.WriteLine(GetLeftMargin() + "╔" + new string('═', MenuWidth - 2) + "╗");
         }
 
-        // Rysowanie środkowego paska obramowania
         static void PrintMiddleBorder()
         {
-            Console.WriteLine("╠" + new string('═', MenuWidth - 2) + "╣");
+            Console.WriteLine(GetLeftMargin() + "╠" + new string('═', MenuWidth - 2) + "╣");
         }
 
-        // Rysowanie dolnego paska obramowania
         static void PrintBottomBorder()
         {
-            Console.WriteLine("╚" + new string('═', MenuWidth - 2) + "╝");
+            Console.WriteLine(GetLeftMargin() + "╚" + new string('═', MenuWidth - 2) + "╝");
         }
 
-        // Rysowanie pustej linii bez tekstu (tylko obramowanie ║ po lewej i prawej ) 
         static void PrintEmptyLine()
         {
-            Console.WriteLine("║" + new string(' ', MenuWidth - 2) + "║");
+            Console.WriteLine(GetLeftMargin() + "║" + new string(' ', MenuWidth - 2) + "║");
         }
 
-        // Rysuje obramowania ║ po lewej i prawej oraz wypisuje wyśrodkowany podany tekst dla nagłówków w menu
         static void PrintCenteredText(string text)
         {
-            // Oblicza ilość znaków potrzebnych do wyśrodkowania tekstu
             int totalSpaces = MenuWidth - 2 - text.Length;
-            int leftSpaces = totalSpaces / 2;
-            int rightSpaces = totalSpaces - leftSpaces;
 
-            // Zabezpieczenie przed błędem gdzie tekst jest dłuższy od szerokości menu
             if (totalSpaces < 0)
             {
                 text = text.Substring(0, MenuWidth - 5) + "...";
-                leftSpaces = 0; rightSpaces = 0;
+                totalSpaces = 0;
             }
 
-            Console.WriteLine("║" + new string(' ', leftSpaces) + text + new string(' ', rightSpaces) + "║");
+            int leftSpaces = totalSpaces / 2;
+            int rightSpaces = totalSpaces - leftSpaces;
+
+            Console.WriteLine(GetLeftMargin() + "║" + new string(' ', leftSpaces) + text + new string(' ', rightSpaces) + "║");
         }
 
-        // Rysuje obramowania ║ po lewej i prawej oraz wypisuje podany tekst wyrównany do lewej dla pozycji w menu
         static void PrintLeftText(string text)
         {
             string prefix = "  ";
             int rightSpaces = MenuWidth - 2 - text.Length - prefix.Length;
 
-            // Zabezpieczenie przed błędem gdzie tekst jest dłuższy od szerokości menu
             if (rightSpaces < 0)
             {
                 text = text.Substring(0, MenuWidth - 5 - prefix.Length) + "...";
                 rightSpaces = 0;
             }
 
-            Console.WriteLine("║" + prefix + text + new string(' ', rightSpaces) + "║");
+            Console.WriteLine(GetLeftMargin() + "║" + prefix + text + new string(' ', rightSpaces) + "║");
         }
 
         // ----- Metody sudoku -----
+
 
         // Generenowanie i zapisywanie sudoku
         static void GenerateAndSaveSudokus(int count)
@@ -277,10 +277,12 @@ namespace sudoku_console_app
             }
         }
 
+        // Generowanie planszy sudoku do rozwiązania
         static void GenerateUnsolvedSudoku()
         {
 
         }
+
         // Generowanie nowej losowej, poprawnej planszy sudoku na podstawie bazowej.
         static int[,] GenerateValidBaseSudoku()
         {
@@ -351,68 +353,6 @@ namespace sudoku_console_app
             // Zapewnia zmianę wartości z jednoczesnym zachowaniem przedziału 1-9
             grid[row, col] = (grid[row, col] % 9) + 1;
         }
-
-        // Pobieranie danych z bazy
-        static void VerifySudokusFromCsv(string path)
-        {
-            if (!File.Exists(path))
-            {
-                Console.WriteLine($"Nie znaleziono pliku: {path}");
-                return;
-            }
-
-            try
-            {
-                string[] lines = File.ReadAllLines(path);
-                List<string> currentSudokuLines = new List<string>();
-                int sudokuCounter = 1;
-
-                foreach (string line in lines)
-                {
-                    if (string.IsNullOrWhiteSpace(line)) continue;
-                    currentSudokuLines.Add(line);
-
-                    if (currentSudokuLines.Count == 9)
-                    {
-                        ProcessAndPrintSudoku(currentSudokuLines, sudokuCounter);
-                        sudokuCounter++;
-                        currentSudokuLines.Clear();
-                        Thread.Sleep(500);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Wystąpił błąd odczytu pliku {ex.Message}");
-            }
-        }
-
-        static void ProcessAndPrintSudoku(List<string> rowData, int index)
-        {
-            Console.WriteLine($"\n --- Sudoku #{index} --- \n");
-            int[,] sudoku = new int[9, 9];
-
-            try
-            {
-                for (int row = 0; row < 9; row++)
-                {
-                    string[] currentRow = rowData[row].Split(new[] {',',';',' '}, StringSplitOptions.RemoveEmptyEntries);
-                    for (int col = 0; col < 9; col++)
-                    {
-                        sudoku[row, col] = int.Parse(currentRow[col].Trim());
-                    }
-                }
-
-                PrintGrid(sudoku);
-                string result = ValidateSudokuLogic(sudoku);
-                Console.WriteLine(result);
-            }
-            catch(Exception)
-            {
-                Console.WriteLine("Błąd odczytu planszy.");
-            }
-        }
-
         // Wypisanie sudoku
         static void PrintGrid(int[,] sudoku)
         {
@@ -427,7 +367,7 @@ namespace sudoku_console_app
                 if (row == 2 || row == 5) Console.WriteLine(new string('-', 7) + '+' + new string('-', 7) + '+' + new string('-', 7));
             }
         }
-
+        // Sprawdzanie czy sudoku jest prawidłowo rozwiązane
         static string ValidateSudokuLogic(int[,] sudokuBeingChecked)
         {
             // Sprawdzanie wierszy
@@ -478,21 +418,142 @@ namespace sudoku_console_app
             return "\nPRAWIDŁOWE SUDOKU";
         }
 
-        // Usuwanie wszystkich lub wybranego wpisu
+        // Sczytuje i zapisuje do listy 'sudokus' wszystkie plansze sudoku z pliku csv (bez znaków, same cyfry - do obliczeń itp.)
+        static List<int[,]> ReadAllSudokus(string path)
+        {
+            List<int[,]> sudokus = new List<int[,]>();
+            if (!File.Exists(path)) return sudokus;
+
+            string[] lines = File.ReadAllLines(path);
+            List<string> currentGrid = new List<string>();
+
+            foreach (string line in lines)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                currentGrid.Add(line);
+
+                if (currentGrid.Count == 9)
+                {
+                    int[,] grid = new int[9, 9];
+                    for (int row = 0; row < 9; row++)
+                    {
+                        string[] gridRow = currentGrid[row]
+                            .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+                        for (int col = 0; col < 9; col++)
+                        {
+                            if (int.TryParse(gridRow[col], out int cellValue)) grid[row, col] = cellValue;
+                        }
+                    }
+                    sudokus.Add(grid);
+                    currentGrid.Clear();
+                }
+            }
+
+            return sudokus;
+        }
+
+        // Zapisywanie wszystkich aktualnych sudoku do csv
+        static void SaveAllSudokus(string path, List<int[,]> sudokus)
+        {
+            using (StreamWriter sw = new StreamWriter(path, append: false))
+            {
+                foreach (var grid in sudokus)
+                {
+                    for (int row = 0; row < 9; row++)
+                    {
+                        List<string> gridRow = new List<string>();
+                        for (int col = 0; col < 9; col++) gridRow.Add(grid[row, col].ToString());
+                        sw.WriteLine(string.Join(',', gridRow));
+                    }
+                    sw.WriteLine();
+                }
+            }
+        }
+
+        // Usuwanie wszystkich lub wybranego wpisu (za pomocą gotowej metody bibliotecznej listy .RemoveAt() )
         static void DeleteEntry(string path)
         {
+            var sudokus = ReadAllSudokus(path);
+            if (sudokus.Count == 0)
+            {
+                Console.WriteLine("Baza jest pusta.");
+                Thread.Sleep(1000);
+                return;
+            }
 
+            Console.WriteLine($"Obecnie w bazie znajduje się {sudokus.Count} plansz.");
+            Console.Write("Podaj numer wpisu do usunięcia: ");
+            var input = Console.ReadLine();
+
+            if (!int.TryParse(input, out int index) && index >= 1 && index <= sudokus.Count)
+            {
+                sudokus.RemoveAt(index - 1);
+                SaveAllSudokus(path, sudokus);
+                Console.WriteLine("Wpis usunięto pomyślnie");
+            }
+            else Console.WriteLine("Nieprawidłowy index sudoku.");
+            Thread.Sleep(1000);
         }
 
-        static void CleanUpDatabase(string path, bool keepValid)
-        {
-
-        }
-
+        // Wyświetla aktualną bazę sudoku (po kolei każdą planszę wraz z informacją czy jest prawidłowa czy nie)
         static void DisplayDatabase(string path)
         {
+            var sudokus = ReadAllSudokus(path);
+            if (sudokus.Count == 0)
+            {
+                Console.WriteLine("Baza jest pusta.");
+                Thread.Sleep(1000);
+                return;
+            }
+
+            string choice = "";
+            while (true)
+            {
+                Console.WriteLine($"Znaleziono {sudokus.Count} plansz. Wyświetlić wszystkie (ALL) czy wybraną (ONE)?");
+                choice = Console.ReadLine()?.Trim().ToUpper();
+
+                if (choice != "ALL" && choice != "ONE")
+                {
+                    Console.WriteLine("Nieprawidłowy wybór, Spróbuj ponownie.");
+                    Thread.Sleep(1000);
+                    continue;
+                }
+                break;
+            }
+
+            if (choice == "ALL")
+            {
+                for (int i = 0; i < sudokus.Count; i++)
+                {
+                    Console.WriteLine($"\n--- Sudoku #{i + 1} ---");
+                    PrintGrid(sudokus[i]);
+                    Console.WriteLine(ValidateSudokuLogic(sudokus[i]));
+                    Thread.Sleep(300);
+                }
+            }
+            else if (choice == "ONE")
+            {
+                Console.Write("\nPodaj numer planszy: ");
+                var input = Console.ReadLine();
+                if (int.TryParse(input, out int index) && index >= 1 && index <= sudokus.Count)
+                {
+                    Console.WriteLine($"\n--- Sudoku #{index} ---");
+                    PrintGrid(sudokus[index - 1]);
+                    Console.WriteLine(ValidateSudokuLogic(sudokus[index - 1]));
+                }
+            }
+
+            Console.WriteLine("\nNaciśnij dowolny klawisz, aby wrócić.");
+            Console.ReadKey(intercept: true);
+            Console.Clear();
+        }
+
+        static void FilterDatabase(string path, bool keepValid)
+        {
 
         }
+
 
         static void ShowStats(string path)
         {
