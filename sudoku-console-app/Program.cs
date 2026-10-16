@@ -158,21 +158,21 @@ namespace sudoku_console_app
 
                 switch (choice)
                 {
-                    case "1":
+                    case "01":
                         File.WriteAllText(unsolvedSudokuFilePath, string.Empty);
                         Console.WriteLine("Baza wyzerowana.");
                         Thread.Sleep(1000);
                         break;
-                    case "2":
+                    case "02":
                         DeleteEntry(unsolvedSudokuFilePath);
                         break;
-                    case "3":
+                    case "1":
                         GenerateUnsolvedSudoku();
                         break;
-                    case "4":
+                    case "2":
                         DisplayDatabase(unsolvedSudokuFilePath);
                         break;
-                    case "5":
+                    case "3":
                         AnimateSudoku(unsolvedSudokuFilePath, isSolved: false);
                         break;
                 }
@@ -198,21 +198,25 @@ namespace sudoku_console_app
             Console.WriteLine(GetLeftMargin() + "╔" + new string('═', MenuWidth - 2) + "╗");
         }
 
+        // Rysowanie środkowego paska obramowania
         static void PrintMiddleBorder()
         {
             Console.WriteLine(GetLeftMargin() + "╠" + new string('═', MenuWidth - 2) + "╣");
         }
 
+        // Rysowanie dolnego paska obramowania
         static void PrintBottomBorder()
         {
             Console.WriteLine(GetLeftMargin() + "╚" + new string('═', MenuWidth - 2) + "╝");
         }
 
+        // Rysowanie pustej lini w menu wraz z obramowaniem
         static void PrintEmptyLine()
         {
             Console.WriteLine(GetLeftMargin() + "║" + new string(' ', MenuWidth - 2) + "║");
         }
 
+        // Rysowanie obramowanie i wyśrodkowanie nagłówka
         static void PrintCenteredText(string text)
         {
             int totalSpaces = MenuWidth - 2 - text.Length;
@@ -229,6 +233,7 @@ namespace sudoku_console_app
             Console.WriteLine(GetLeftMargin() + "║" + new string(' ', leftSpaces) + text + new string(' ', rightSpaces) + "║");
         }
 
+        // Rysownie obramowanie i wypisanie zwykłego tekstu menu wyrównanego do prawej
         static void PrintLeftText(string text)
         {
             string prefix = "  ";
@@ -243,8 +248,8 @@ namespace sudoku_console_app
             Console.WriteLine(GetLeftMargin() + "║" + prefix + text + new string(' ', rightSpaces) + "║");
         }
 
-        // ----- Metody sudoku -----
 
+        // ----- Metody sudoku -----
 
         // Generenowanie i zapisywanie sudoku
         static void GenerateAndSaveSudokus(int count)
@@ -548,21 +553,135 @@ namespace sudoku_console_app
             Console.ReadKey(intercept: true);
             Console.Clear();
         }
-
+        
+        // Czyści bazę pozytywnie/negatywnie w zależności od zmiennej keepValid.
         static void FilterDatabase(string path, bool keepValid)
         {
+            var sudokus = ReadAllSudokus(path);
+            if (sudokus.Count == 0)
+            {
+                Console.WriteLine("Baza jest pusta.");
+                Thread.Sleep(1000);
+                return;
+            }
+            Console.WriteLine($"Obecnie w bazie znajduje się {sudokus.Count} plansz.");
+            string[] spinnerFrames = { "[□□□□]", "[■□□□]", "[■■□□]", "[■■■□]", "[■■■■]" };
 
+            Console.Write("\nFiltrowanie... ");
+            Console.CursorVisible = false;
+
+            for (int i = 0; i < spinnerFrames.Length; i++)
+            {
+                string currentFrame = spinnerFrames[i];
+                Console.Write(currentFrame);
+
+                Thread.Sleep(700);
+
+                // Jeśli to ostatnia klatka, nie cofam kursora, tylko czyszczę znak na końcu
+                if (i < spinnerFrames.Length - 1)
+                {
+                    Console.Write(new string('\b', currentFrame.Length));
+                }
+                else
+                {
+                    Console.WriteLine(); // Nadpisanie spacją i przejście do nowej linii
+                }
+            }
+            Console.CursorVisible = true;
+
+            var filtered = sudokus.Where(grid =>
+            {
+                string result = ValidateSudokuLogic(grid);
+                bool isValid = result.Contains("PRAWIDŁOWE SUDOKU") && !result.Contains("NIEPRAWIDŁOWE SUDOKU");
+                return keepValid ? isValid : !isValid;
+            }).ToList();
+
+            SaveAllSudokus(path, filtered);
+            Console.WriteLine($"\nPrzefiltrowano. Pozostało {sudokus.Count} plansz.");
+            Thread.Sleep(3000);
         }
 
-
+        // Wypisuje statystyki bazy
         static void ShowStats(string path)
         {
+            var sudokus = ReadAllSudokus(path);
+            if (sudokus.Count == 0)
+            {
+                Console.WriteLine("Baza jest pusta.");
+                Thread.Sleep(1000);
+                return;
+            }
 
+            int validCount = 0;
+            int invalidCount = 0;
+
+            foreach (var grid in sudokus)
+            {
+                string result = ValidateSudokuLogic(grid);
+                if (result.Contains("PRAWIDŁOWE SUDOKU") && !result.Contains("NIEPRAWIDŁOWE SUDOKU")) validCount++;
+                else invalidCount++;
+            }
+
+            int validPercent = (int)Math.Round((double)(validCount * 100) / sudokus.Count);
+            int invalidPercent = 100-validPercent;
+
+            Console.WriteLine();
+            Console.WriteLine("--- STATYSTYKI BAZY ---");
+            Console.WriteLine($"Całkowita liczba plansz : {sudokus.Count}");
+            Console.WriteLine($"Poprawne Sudoku         : {validCount} ({validPercent}%)");
+            Console.WriteLine($"Błędne Sudoku           : {invalidCount} ({invalidPercent}%)");
+            Console.WriteLine("\nNaciśnij dowolny klawisz, aby wrócić.");
+            Console.ReadKey();
         }
 
         static void ManualEntry(string path)
         {
+            Console.WriteLine("Wpisz gotową planszę sudoku (9 wierszy po 9 cyfr) lub wklej gotowca");
+            List<string> rows = new List<string>();
+            try
+            {
+                for (int i = 0; i < 9; i++)
+                {
+                    string input = Console.ReadLine();
 
+                    if (string.IsNullOrWhiteSpace(input))
+                    {
+                        Console.WriteLine($"Błąd: Pusty wiersz (nr {i + 1}). Anulowano wprowadzanie.");
+                        Thread.Sleep(2000);
+                        return;
+                    }
+
+                    input = input.Trim();
+
+                    if (input.Length != 9)
+                    {
+                        Console.WriteLine($"Błąd: Wiersz {i + 1} zawiera {input.Length} znaków zamiast 9. Anulowano wprowadzanie.");
+                        Thread.Sleep(2000);
+                        return;
+                    }
+
+                    foreach (char c in input)
+                    {
+                        if (!char.IsDigit(c))
+                        {
+                            Console.WriteLine($"Błąd: Wiersz {i + 1} zawiera niedozwolony znak '{c}'. Dozwolone tylko cyfry 0-9. Anulowano wprowadzanie.");
+                            Thread.Sleep(2000);
+                            return;
+                        }
+                    }
+
+                    rows.Add(input);
+                }
+
+                File.AppendAllLines(path, rows);
+                File.AppendAllText(path, "\n");
+                Console.WriteLine("\nZapisano pomyślnie.");
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Błąd podczas wprowadzania danych.");
+            }
+            Thread.Sleep(1000);
         }
 
         static void AnimateSudoku(string path, bool isSolved)
