@@ -285,7 +285,40 @@ namespace sudoku_console_app
         // Generowanie planszy sudoku do rozwiązania
         static void GenerateUnsolvedSudoku()
         {
+            Console.WriteLine("\nWybierz poziom trudności:");
+            Console.WriteLine("1 - Easy   (wycięcie 30 komórek)");
+            Console.WriteLine("2 - Medium (wycięcie 45 komórek)");
+            Console.WriteLine("3 - Hard   (wycięcie 55 komórek)");
+            Console.Write("Wybór: ");
 
+            string input = Console.ReadLine()?.Trim();
+            int blankSpaces = input == "3" ? 55 : (input == "2" ? 45 : 30);
+
+            int[,] grid = GenerateValidBaseSudoku();
+            int removedSpaces = 0;
+
+            while(removedSpaces < blankSpaces)
+            {
+                int row = random.Next(9);
+                int col = random.Next(9);
+                if (grid[row,col] != 0)
+                {
+                    grid[row, col] = 0;
+                    removedSpaces++;
+                }
+            }
+
+            Console.WriteLine("\nWygenerowana plansza\n");
+            PrintGrid(grid);
+
+            Console.Write("\n Czy chcesz zapisać tę planszę do bazy nierozwiązanych? (T/N): ");
+            if(Console.ReadLine()?.Trim().ToUpper() == "T")
+            {
+                List<int[,]> GridList = new List<int[,]> { grid };
+                SaveAllSudokus(unsolvedSudokuFilePath, ReadAllSudokus(unsolvedSudokuFilePath).Concat(GridList).ToList());
+                Console.WriteLine("Zapisano do bazy.");
+                Thread.Sleep(3000);
+            }
         }
 
         // Generowanie nowej losowej, poprawnej planszy sudoku na podstawie bazowej.
@@ -686,7 +719,162 @@ namespace sudoku_console_app
 
         static void AnimateSudoku(string path, bool isSolved)
         {
+            var sudokus = ReadAllSudokus(path);
+            if (sudokus.Count == 0)
+            {
+                Console.WriteLine("Baza jest pusta.");
+                Thread.Sleep(1000);
+                return;
+            }
 
+            int index = 0;
+            Console.Write($"Wybierz numer Sudoku z bazy (1 - {sudokus.Count}): ");
+
+            // Zabezpieczenie przed wpisaniem liczby poza dostępnym zakresem indeksów
+            while(!int.TryParse(Console.ReadLine(), out index) || index < 1 || index > sudokus.Count)
+            {
+                Console.WriteLine("Błąd: Nieprawidłowy numer. Spróbuj ponownie.");
+                Console.Write($"Wybierz numer Sudoku z bazy (1 - {sudokus.Count}): ");
+            }
+            
+            int[,] currentGrid = sudokus[index - 1];
+            int[,] targetGrid = new int[9, 9];
+            int[,] displayGrid = new int[9, 9];
+
+            Array.Copy(currentGrid, displayGrid, currentGrid.Length);
+            Array.Copy(currentGrid, targetGrid, currentGrid.Length);
+
+            // Dla bazy rozwiązanych
+            if (isSolved)
+            {
+                Console.WriteLine("\nWybierz poziom trudności:");
+                Console.WriteLine("1 - Easy   (wycięcie 30 komórek)");
+                Console.WriteLine("2 - Medium (wycięcie 45 komórek)");
+                Console.WriteLine("3 - Hard   (wycięcie 55 komórek)");
+                Console.Write("Wybór: ");
+
+                string input = Console.ReadLine()?.Trim();
+                int blankSpaces = input == "3" ? 55 : (input == "2" ? 45 : 30);
+
+                List<(int row, int col)> cellsToModify = new List<(int row, int col)>();
+                while(cellsToModify.Count < blankSpaces)
+                {
+                    int row = random.Next(9);
+                    int col = random.Next(9);
+                    if(!cellsToModify.Contains((row, col)))
+                    {
+                        cellsToModify.Add((row, col));
+                    }
+                }
+
+                Console.Clear();
+                Console.CursorVisible = false;
+
+                // Animacja dekonstrukcji
+                for(int i = 0; i<cellsToModify.Count; i++)
+                {
+                    var cell = cellsToModify[i];
+                    displayGrid[cell.row, cell.col] = 0;
+
+                    Console.SetCursorPosition(0, 0);
+                    Console.WriteLine($"--- ANIMACJA DEKONSTRUKCJI PLANSZY #{index} ---\n");
+                    PrintGrid(displayGrid);
+
+                    Thread.Sleep(100);
+                }
+            }
+            // Dla bazy nierozwiązanych
+            else
+            {
+                if (!SolveSudoku(targetGrid))
+                {
+                    Console.WriteLine("\nTo Sudoku jest błędne i nie posiada prawidłowego rozwiązania.");
+                    Thread.Sleep(2000);
+                    return;
+                }
+                Console.Clear();
+                Console.CursorVisible = false;
+                Console.WriteLine($"--- PLANSZA {index} ---\n");
+                PrintGrid(displayGrid);
+                Console.WriteLine("\nRozpoczęcie animacji rozwiązywania za 3 sekundy...");
+                Thread.Sleep(3000);
+                Console.Clear();
+
+                List<(int row, int col)> emptyCells = new List<(int row, int col)>();
+                for(int row = 0; row < 9; row++)
+                {
+                    for (int col = 0; col < 9; col++)
+                    {
+                        if (displayGrid[row, col] == 0) emptyCells.Add((row, col));
+                    }
+                }
+
+                emptyCells = emptyCells.OrderBy(x => random.Next()).ToList();
+
+
+                // Animacja rozwiązania
+                for(int i = 0; i<emptyCells.Count; i++)
+                {
+                    var cell = emptyCells[i];
+                    displayGrid[cell.row, cell.col] = targetGrid[cell.row, cell.col];
+
+                    Console.SetCursorPosition(0, 0);
+                    Console.WriteLine($"--- ANIMACJA ROZWIĄZANIA PLANSZY {index} ---\n");
+                    PrintGrid(displayGrid);
+                    Thread.Sleep(150);
+                }
+            }
+            Console.CursorVisible = true;
+            Console.WriteLine("\nAnimacja zakończona. Naciśnij klawisz...");
+            Console.ReadKey();
+        }
+
+        // Rozwiązywanie sudoku w tle
+        static bool SolveSudoku(int[,] grid)
+        {
+            for(int row = 0; row<9; row++)
+            {
+                for(int col = 0; col < 9; col++)
+                {
+                    if (grid[row,col] == 0)
+                    {
+                        for(int n = 1; n <= 9; n++)
+                        {
+                            if(isMoveValid(grid, row, col, n))
+                            {
+                                grid[row, col] = n;
+                                if (SolveSudoku(grid)) return true;
+                                // Backtracking - zerowanie błędnej liczby i cofanie się gdy żadna z dalszych kombinacji nie prowadzi do prawidłowego rozwiązania, próba innych dopuszczalnych cyfr.
+                                grid[row, col] = 0;
+                            }
+                        }
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        static bool isMoveValid(int[,] grid, int row, int col, int n)
+        {
+            // Sprawdzanie wierszy i kolumn
+            for(int i = 0; i < 9; i++)
+            {
+                if (grid[row, i] == n) return false;
+                if (grid[i, col] == n) return false;
+            }
+
+            // Sprawdzanie kwadratów 3x3
+            int startRow = row - (row % 3);
+            int startCol = col - (col % 3);
+            for(int i = 0; i < 3; i++)
+            {
+                for(int j = 0; j < 3; j++)
+                {
+                    if (grid[startRow + 1, startCol + j] == n) return false;
+                }
+            }
+            return true;
         }
     }
 }
