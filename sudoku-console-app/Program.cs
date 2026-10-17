@@ -560,6 +560,7 @@ namespace sudoku_console_app
                 break;
             }
 
+            // Wyświetlanie każdego sudoku
             if (choice == "ALL")
             {
                 for (int i = 0; i < sudokus.Count; i++)
@@ -570,9 +571,10 @@ namespace sudoku_console_app
                     Thread.Sleep(300);
                 }
             }
+            // Wyświetlanie jednego wybranego sudoku
             else if (choice == "ONE")
             {
-                Console.Write("\nPodaj numer planszy: ");
+                Console.Write($"\nPodaj numer planszy (1 - {sudokus.Count}): ");
                 var input = Console.ReadLine();
                 if (int.TryParse(input, out int index) && index >= 1 && index <= sudokus.Count)
                 {
@@ -610,14 +612,14 @@ namespace sudoku_console_app
 
                 Thread.Sleep(700);
 
-                // Jeśli to ostatnia klatka, nie cofam kursora, tylko czyszczę znak na końcu
+
                 if (i < spinnerFrames.Length - 1)
                 {
                     Console.Write(new string('\b', currentFrame.Length));
                 }
                 else
                 {
-                    Console.WriteLine(); // Nadpisanie spacją i przejście do nowej linii
+                    Console.WriteLine();
                 }
             }
             Console.CursorVisible = true;
@@ -640,33 +642,104 @@ namespace sudoku_console_app
             var sudokus = ReadAllSudokus(path);
             if (sudokus.Count == 0)
             {
+                Console.Clear();
+                PrintTopBorder();
+                PrintCenteredText("STATYSTYKI BAZY");
+                PrintMiddleBorder();
+                PrintEmptyLine();
                 Console.WriteLine("Baza jest pusta.");
-                Thread.Sleep(1000);
+                PrintEmptyLine();
+                PrintBottomBorder();
+                Thread.Sleep(1500);
                 return;
             }
 
             int validCount = 0;
             int invalidCount = 0;
+            int[] digitCount = new int[10];
+            int totalDigitsCount = sudokus.Count * 81;
 
+            // Zliczanie wystąpień prawidłowych/nieprawidłowych
             foreach (var grid in sudokus)
             {
                 string result = ValidateSudokuLogic(grid);
                 if (result.Contains("PRAWIDŁOWE SUDOKU") && !result.Contains("NIEPRAWIDŁOWE SUDOKU")) validCount++;
                 else invalidCount++;
+
+                // Zliczanie wystąpień każdej cyfry
+                for (int row = 0; row < 9; row++)
+                {
+                    for (int col = 0; col < 9; col++)
+                    {
+                        int currentDigit = grid[row, col];
+                        if(currentDigit >= 0 && currentDigit <= 9)
+                        {
+                            digitCount[currentDigit]++;
+                        }
+                    }
+                }
             }
+
 
             int validPercent = (int)Math.Round((double)(validCount * 100) / sudokus.Count);
             int invalidPercent = 100-validPercent;
 
-            Console.WriteLine();
-            Console.WriteLine("--- STATYSTYKI BAZY ---");
-            Console.WriteLine($"Całkowita liczba plansz : {sudokus.Count}");
-            Console.WriteLine($"Poprawne Sudoku         : {validCount} ({validPercent}%)");
-            Console.WriteLine($"Błędne Sudoku           : {invalidCount} ({invalidPercent}%)");
+            // Obliczanie rozmiaru pliku 
+            FileInfo file = new FileInfo(path);
+            long sizeBytes = file.Exists ? file.Length : 0;
+            double sizeKb = sizeBytes / 1024;
+
+            // Obliczanie proporcji - wypisanie w formie wykresu
+            int barLength = 20;
+            int filledBar = (int)Math.Round((double)validPercent / 100 * barLength);
+            string visualBar = new string('█', filledBar) + new string('░', barLength - filledBar);
+
+            // Ustalanie nazwy bazy do wyświetlenia
+            string dbName = path.Contains("unsolved") ? "NIEROZWIĄZANYCH" : "ROZWIĄZANYCH";
+
+
+            Console.Clear();
+            PrintTopBorder();
+            PrintCenteredText($"STATYSTYKI BAZY {dbName}");
+            PrintMiddleBorder();
+            PrintEmptyLine();
+
+            PrintLeftText($"Plik bazy         : {file.Name} ({sizeKb:F2} KB)");
+            PrintLeftText($"Wszystkich plansz : {sudokus.Count}");
+            PrintEmptyLine();
+            PrintMiddleBorder();
+            PrintEmptyLine();
+            PrintLeftText($"Poprawne Sudoku   : {validCount} ({validPercent}%)");
+            PrintLeftText($"Błędne Sudoku     : {invalidCount} ({invalidPercent}%)");
+            PrintLeftText($"Proporcja         : [{visualBar}]");
+            PrintEmptyLine();
+
+            // Sekcja z wypisaniem cyfr (bez wykresu i bez zera)
+            PrintMiddleBorder();
+            PrintCenteredText("CIEKAWOSTKI LICZBOWE");
+            PrintMiddleBorder();
+            PrintEmptyLine();
+
+            PrintLeftText($"Łączna liczba wszystkich cyfr : {totalDigitsCount}");
+            PrintEmptyLine();
+            PrintLeftText($"Ilość jedynek (1)             : {digitCount[1]}");
+            PrintLeftText($"Ilość dwójek (2)              : {digitCount[2]}");
+            PrintLeftText($"Ilość trójek (3)              : {digitCount[3]}");
+            PrintLeftText($"Ilość czwórek (4)             : {digitCount[4]}");
+            PrintLeftText($"Ilość piątek (5)              : {digitCount[5]}");
+            PrintLeftText($"Ilość szóstek (6)             : {digitCount[6]}");
+            PrintLeftText($"Ilość siódemek (7)            : {digitCount[7]}");
+            PrintLeftText($"Ilość ósemek (8)              : {digitCount[8]}");
+            PrintLeftText($"Ilość dziewiątek (9)          : {digitCount[9]}");
+
+            PrintEmptyLine();
+            PrintBottomBorder();
+
             Console.WriteLine("\nNaciśnij dowolny klawisz, aby wrócić.");
-            Console.ReadKey();
+            Console.ReadKey(intercept: true);
         }
 
+        // Ręczne wprowadzanie rozwiązasudoku do bazy
         static void ManualEntry(string path)
         {
             Console.WriteLine("Wpisz gotową planszę sudoku (9 wierszy po 9 cyfr) lub wklej gotowca");
@@ -717,6 +790,7 @@ namespace sudoku_console_app
             Thread.Sleep(1000);
         }
 
+        // Wyświetlanie przebiegu dekonstrukcji lub rozwiązywania planszy sudoku w formie animacji
         static void AnimateSudoku(string path, bool isSolved)
         {
             var sudokus = ReadAllSudokus(path);
@@ -855,6 +929,7 @@ namespace sudoku_console_app
             return true;
         }
 
+        // Metoda pomocnicza sprawdzająca czy dany ruch uzupełniający jest prawidłowy
         static bool isMoveValid(int[,] grid, int row, int col, int n)
         {
             // Sprawdzanie wierszy i kolumn
